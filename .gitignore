@@ -1,0 +1,9 @@
+# Archivos temporales de compilación y editores
+*.o
+*.d
+*.elf
+*.bin
+*.hex
+.DS_Store
+Thumbs.db
+.vscode/
