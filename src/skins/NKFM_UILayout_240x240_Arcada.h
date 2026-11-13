@@ -1,9 +1,9 @@
 #pragma once
-#include "NKFM_UILayout.h"
+#include "../NKFM_UILayout.h"
 
-class NKFM_UILayout_240x135 : public NKFM_UILayout {
+class NKFM_UILayout_240x240_Arcada : public NKFM_UILayout {
   public:
-    uint16_t rawWidth() const override  { return 135; }
+    uint16_t rawWidth() const override  { return 240; }
     uint16_t rawHeight() const override { return 240; }
 
     void drawStatic(Adafruit_ST7789* tft) override;

@@ -1,6 +1,7 @@
 #pragma once
 #include <Arduino.h>
 #include "NeKuNeKoFM.h"
+#include "NKFM_ActionDispatcher.h"
 
 enum class NKFM_Key : uint8_t {
   NONE = 0,
@@ -20,59 +21,56 @@ class NKFM_IRRemote {
     virtual void flush() = 0;
     virtual NKFM_Key poll(uint32_t *rawOut = nullptr) = 0;
 
-    // Mapa estándar de acciones del mando IR.
-    // Devuelve true si la tecla tiene acción estándar asignada, o false si está libre.
+    // Mapa estándar de acciones del mando IR usando NKFM_ActionDispatcher.
+    // Devuelve true si la tecla tiene acción asignada, o false si está libre para el .ino.
     static bool dispatchDefault(NKFM_Key key, NKFM_Receiver& radio, NKFM_EventCallback onUIEvent = nullptr) {
+      NKFM_Action act = NKFM_Action::NONE;
+
       switch (key) {
         // --- 1. ASIGNADAS: Selección directa de Presets (1..10) ---
-        case NKFM_Key::NUM_1: radio.selectPreset(0, "IR"); return true;
-        case NKFM_Key::NUM_2: radio.selectPreset(1, "IR"); return true;
-        case NKFM_Key::NUM_3: radio.selectPreset(2, "IR"); return true;
-        case NKFM_Key::NUM_4: radio.selectPreset(3, "IR"); return true;
-        case NKFM_Key::NUM_5: radio.selectPreset(4, "IR"); return true;
-        case NKFM_Key::NUM_6: radio.selectPreset(5, "IR"); return true;
-        case NKFM_Key::NUM_7: radio.selectPreset(6, "IR"); return true;
-        case NKFM_Key::NUM_8: radio.selectPreset(7, "IR"); return true;
-        case NKFM_Key::NUM_9: radio.selectPreset(8, "IR"); return true;
-        case NKFM_Key::NUM_0: radio.selectPreset(9, "IR"); return true;
+        case NKFM_Key::NUM_1:        act = NKFM_Action::PRESET_1;       break;
+        case NKFM_Key::NUM_2:        act = NKFM_Action::PRESET_2;       break;
+        case NKFM_Key::NUM_3:        act = NKFM_Action::PRESET_3;       break;
+        case NKFM_Key::NUM_4:        act = NKFM_Action::PRESET_4;       break;
+        case NKFM_Key::NUM_5:        act = NKFM_Action::PRESET_5;       break;
+        case NKFM_Key::NUM_6:        act = NKFM_Action::PRESET_6;       break;
+        case NKFM_Key::NUM_7:        act = NKFM_Action::PRESET_7;       break;
+        case NKFM_Key::NUM_8:        act = NKFM_Action::PRESET_8;       break;
+        case NKFM_Key::NUM_9:        act = NKFM_Action::PRESET_9;       break;
+        case NKFM_Key::NUM_0:        act = NKFM_Action::PRESET_10;      break;
 
         // --- 2. ASIGNADAS: Control de Radio y Audio ---
-        case NKFM_Key::UP:           radio.changeVolume(+1, "IR"); return true;
-        case NKFM_Key::DOWN:         radio.changeVolume(-1, "IR"); return true;
-        case NKFM_Key::LEFT:         radio.prevPreset("IR");       return true;
-        case NKFM_Key::RIGHT:        radio.nextPreset("IR");       return true;
-        case NKFM_Key::REWIND:       radio.stepFrequency(-1, "IR");return true;
-        case NKFM_Key::FAST_FORWARD: radio.stepFrequency(+1, "IR");return true;
-        case NKFM_Key::PREVIOUS:     radio.seek(false, "IR");      return true;
-        case NKFM_Key::NEXT:         radio.seek(true, "IR");       return true;
+        case NKFM_Key::UP:           act = NKFM_Action::VOL_UP;         break;
+        case NKFM_Key::DOWN:         act = NKFM_Action::VOL_DOWN;       break;
+        case NKFM_Key::LEFT:         act = NKFM_Action::PRESET_PREV;    break;
+        case NKFM_Key::RIGHT:        act = NKFM_Action::PRESET_NEXT;    break;
+        case NKFM_Key::REWIND:       act = NKFM_Action::FREQ_DOWN;      break;
+        case NKFM_Key::FAST_FORWARD: act = NKFM_Action::FREQ_UP;        break;
+        case NKFM_Key::PREVIOUS:     act = NKFM_Action::SEEK_DOWN;      break;
+        case NKFM_Key::NEXT:         act = NKFM_Action::SEEK_UP;        break;
         case NKFM_Key::OK:
-        case NKFM_Key::PAUSE:        radio.toggleMute("IR");       return true;
+        case NKFM_Key::PAUSE:        act = NKFM_Action::MUTE_TOGGLE;    break;
 
         // --- 3. ASIGNADAS: Control de Pantalla (vía eventos UI) ---
-        case NKFM_Key::POWER:
-            if (onUIEvent) onUIEvent(NKFM_UIEvent::DISPLAY_TOGGLE, 0, "IR");
-            return true;
-        case NKFM_Key::SELECT:
-            if (onUIEvent) onUIEvent(NKFM_UIEvent::ROTATION_NEXT, 0, "IR");
-            return true;
-        case NKFM_Key::SUBTITLES:
-            if (onUIEvent) onUIEvent(NKFM_UIEvent::THEME_NEXT, 1, "IR");
-            return true;
-        case NKFM_Key::SCENE:
-            if (onUIEvent) onUIEvent(NKFM_UIEvent::THEME_NEXT, 0, "IR");
-            return true;
+        case NKFM_Key::POWER:        act = NKFM_Action::DISPLAY_TOGGLE; break;
+        case NKFM_Key::EJECT:        act = NKFM_Action::VIEW_TOGGLE;    break;
+        case NKFM_Key::SUBTITLES:    act = NKFM_Action::THEME_NEXT;     break;
+        case NKFM_Key::SCENE:        act = NKFM_Action::THEME_PREV;     break;
+        case NKFM_Key::SELECT:       act = NKFM_Action::ROTATION_NEXT;  break;
+        case NKFM_Key::STOP:         act = NKFM_Action::SKIN_NEXT;      break;
 
         // --- 4. SIN ASIGNAR (Libres para personalizar en el .ino) ---
         case NKFM_Key::MENU:
         case NKFM_Key::CLEAR:
-        case NKFM_Key::STOP:
         case NKFM_Key::BOOKMARK:
-        case NKFM_Key::EJECT:
         case NKFM_Key::MUSIC:
         case NKFM_Key::KEY_UNKNOWN:
         case NKFM_Key::NONE:
         default:
           return false;
       }
+
+      NKFM_ActionDispatcher::execute(act, radio, onUIEvent, "IR");
+      return true;
     }
 };

@@ -1,6 +1,11 @@
 #pragma once
 #include <Arduino.h>
 
+typedef void (*NKFM_RDSServiceNameCb)(const char* name);
+typedef void (*NKFM_RDSTextCb)(const char* text);
+typedef void (*NKFM_RDSTimeCb)(uint8_t hour, uint8_t minute);
+typedef void (*NKFM_RDSPtyCb)(uint8_t pty);
+
 static constexpr const char* PTYeurope[32] = {
     "Sin definir",      // 0: None / No programme type
     "Noticias",         // 1: News
@@ -36,42 +41,53 @@ static constexpr const char* PTYeurope[32] = {
     "Alarma"            // 31: Alarm
 };
 
-typedef void (*RDSServiceCallback)(const char* psName);
-typedef void (*RDSTextCallback)(const char* radioText);
-typedef void (*RDSTimeCallback)(uint8_t hour, uint8_t minute);
-typedef void (*RDSPtyCallback)(uint8_t ptyCode);
-
 class NKFM_RDSParser {
   private:
-    char     _rdsPS[9];
-    char     _rdsPS_buf[9];
-    uint8_t  _psMask = 0;
+    char _psName1[10];
+    char _psName2[10];
+    char _programServiceName[10];
 
-    char     _rdsRT[65];
-    uint8_t  _rdsLastAB = 255;
-    uint16_t _rtMask    = 0;
-    uint16_t _rtEndMask = 0xFFFF;
-    bool     _rtReady   = false;
+    char     _rdstext[66];
+    char     _lastSentRT[66];
+    uint8_t  _lastTextIDX;
+    uint8_t  _textAB;
+    uint8_t  _lastTextAB;
+    uint16_t _rtMask;
+    uint8_t  _rtEndSeg;
 
-    RDSServiceCallback _onPS   = nullptr;
-    RDSTextCallback    _onRT   = nullptr;
-    RDSTimeCallback    _onTime = nullptr;
-    RDSPtyCallback     _onPTY  = nullptr;
+    uint16_t _lastMinutes;
+    uint8_t  _lastPTY;
 
-    static char rdsCharToGFX(uint8_t c);
+    NKFM_RDSServiceNameCb _sendServiceName = nullptr;
+    NKFM_RDSTextCb        _sendText        = nullptr;
+    NKFM_RDSTimeCb        _sendTime        = nullptr;
+    NKFM_RDSPtyCb         _sendPTY         = nullptr;
+
+    static char decodeCP437(uint8_t c);
 
   public:
     NKFM_RDSParser();
 
     void reset();
-    void setCallbacks(RDSServiceCallback onPS, RDSTextCallback onRT, RDSTimeCallback onTime, RDSPtyCallback onPTY);
     void feedGroup(uint16_t b1, uint16_t b2, uint16_t b3, uint16_t b4,
                    uint8_t errB = 0, uint8_t errC = 0, uint8_t errD = 0);
 
-    const char* getPS() const { return _rdsPS; }
-    const char* getRT() const { return _rdsRT; }
+    void attachServiceNameCallback(NKFM_RDSServiceNameCb cb) { _sendServiceName = cb; }
+    void attachTextCallback(NKFM_RDSTextCb cb)               { _sendText = cb; }
+    void attachTimeCallback(NKFM_RDSTimeCb cb)               { _sendTime = cb; }
+    void attachPTYCallback(NKFM_RDSPtyCb cb)                 { _sendPTY = cb; }
+
+    const char* getServiceName() const { return _programServiceName; }
+    const char* getRadioText() const   { return _rdstext; }
+    uint8_t     getPTY() const         { return _lastPTY; }
 
     static const char* getPTYName(uint8_t pty) {
       return (pty < 32) ? PTYeurope[pty] : PTYeurope[0];
     }
+
+    static const char* getPTYNameEurope(uint8_t pty) {
+      return getPTYName(pty);
+    }
+
+
 };

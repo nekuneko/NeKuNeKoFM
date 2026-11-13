@@ -19,6 +19,11 @@ static unsigned long internalTClock = 0;
 static bool          internalSynced = false;
 static unsigned long tScroll        = 0;
 
+static NKFM_UILayout* const* _skins            = nullptr;
+static uint8_t               _skinCount        = 0;
+static uint8_t               _curSkin          = 0;
+static unsigned long         _lastSkinChangeMs = 0;
+
 int8_t UIGfx::findPresetIndex(const UIState& s, RADIO_FREQ f) {
   if (!s.presets) return -1;
   for (uint8_t i = 0; i < s.presetCount; i++) {
@@ -111,6 +116,13 @@ void uiInit(Adafruit_ST7789 &display, NKFM_UILayout &activeLayout, uint8_t rotat
   tft->cp437(true);
   dirtyFlags = D_FULL | D_ALL;
 }
+
+void uiSetLayout(NKFM_UILayout &activeLayout) {
+  layout = &activeLayout;
+  dirtyFlags = D_FULL | D_ALL;
+}
+
+
 
 void uiSetPresets(const NKFM_Preset* presetList, uint8_t count) {
   st.presets = presetList;
@@ -220,9 +232,11 @@ void uiTickScroll(unsigned long now) {
 
 void uiRender() {
   if (!tft || !layout || !displayOn || dirtyFlags == 0) return;
-  if (dirtyFlags & D_FULL) { layout->drawStatic(tft); dirtyFlags = D_ALL; }
+  bool wasFull = (dirtyFlags & D_FULL) != 0;
+  if (wasFull) { layout->drawStatic(tft); dirtyFlags = D_ALL; }
   layout->render(tft, st, dirtyFlags);
   dirtyFlags = 0;
+  if (wasFull) _lastSkinChangeMs = millis(); // <-- Reinicia el bloqueo AL TERMINAR de pintar
 }
 
 void DisplayServiceName(const char *name) { uiSetServiceName(name); }
@@ -239,4 +253,36 @@ void DisplayTime(uint8_t h, uint8_t m) {
     internalTClock = millis(); internalSynced = true;
     uiSetTime(internalH, internalM, 0, true);
   }
+}
+
+void uiSetSkins(NKFM_UILayout* const* skinList, uint8_t count) {
+  _skins     = skinList;
+  _skinCount = count;
+  _curSkin   = 0;
+  if (_skins && _skinCount > 0 && _skins[0]) {
+    uiSetLayout(*_skins[0]);
+  }
+}
+
+uint8_t uiSetSkin(uint8_t idx) {
+  if (!_skins || _skinCount == 0) return 0;
+  _curSkin = idx % _skinCount;
+  if (_skins[_curSkin]) uiSetLayout(*_skins[_curSkin]);
+  return _curSkin;
+}
+
+uint8_t uiNextSkin(bool forward) {
+  if (millis() - _lastSkinChangeMs < 350) return _curSkin;
+  _lastSkinChangeMs = millis();
+
+  if (!_skins || _skinCount == 0) return 0;
+  if (forward) _curSkin = (_curSkin + 1) % _skinCount;
+  else         _curSkin = (_curSkin + _skinCount - 1) % _skinCount;
+  if (_skins[_curSkin]) uiSetLayout(*_skins[_curSkin]);
+  return _curSkin;
+}
+
+
+uint8_t uiGetSkin() {
+  return _curSkin;
 }

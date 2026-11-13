@@ -9,14 +9,27 @@
   #include <IRLib_HashRaw.h>
   #include <IRLibCombo.h>
   #include <IRLibRecv.h>
+#elif defined(ESP32)
+  #include <IRremoteESP8266.h>
+  #include <IRrecv.h>
+  #include <IRutils.h>
+#endif
 
 class NKFM_IRSony : public NKFM_IRRemote {
   private:
-    IRrecv    receiver;
-    IRdecode  decoder;
-    uint32_t  lastRawCode  = 0;
+    uint8_t       _rxPin;
+    NKFM_Key      lastKey      = NKFM_Key::NONE;
     unsigned long lastPacketMs = 0;
     unsigned long lastValidMs  = 0;
+
+
+  #if defined(ARDUINO_ARCH_SAMD)
+    IRrecv   receiver;
+    IRdecode decoder;
+  #elif defined(ESP32)
+    IRrecv         receiver;
+    decode_results results;
+  #endif
 
     static NKFM_Key mapSonyCode(uint32_t code) {
       switch (code) {
@@ -60,8 +73,44 @@ class NKFM_IRSony : public NKFM_IRRemote {
       }
     }
 
+    NKFM_Key filterAndMap(uint32_t code, uint32_t *rawOut) {
+      unsigned long now = millis();
+      unsigned long gap = now - lastPacketMs;
+      lastPacketMs = now;
+
+      NKFM_Key key = mapSonyCode(code);
+      if (key == NKFM_Key::NONE) return NKFM_Key::NONE;
+
+      bool allowHold = (key == NKFM_Key::UP || key == NKFM_Key::DOWN ||
+                        key == NKFM_Key::REWIND || key == NKFM_Key::FAST_FORWARD);
+
+      if (key != lastKey) {
+        if ((now - lastValidMs) >= 120) {
+          lastKey     = key;
+          lastValidMs = now;
+          if (rawOut) *rawOut = code;
+          return key;
+        }
+      } else if (allowHold) {
+        if ((now - lastValidMs) >= 170) {
+          lastValidMs = now;
+          if (rawOut) *rawOut = code;
+          return key;
+        }
+      } else if (gap >= 300 && (now - lastValidMs) >= 350) {
+        lastValidMs = now;
+        if (rawOut) *rawOut = code;
+        return key;
+      }
+
+      return NKFM_Key::NONE;
+    }
+
+
+
   public:
-    NKFM_IRSony(uint8_t irqPin) :  receiver(irqPin) {}
+  #if defined(ARDUINO_ARCH_SAMD)
+    NKFM_IRSony(uint8_t rxPin) : _rxPin(rxPin), receiver(rxPin) {}
 
     void begin() override {
       receiver.enableIRIn();
@@ -72,48 +121,42 @@ class NKFM_IRSony : public NKFM_IRRemote {
         decoder.value = 0;
         receiver.enableIRIn();
       }
-      unsigned long now = millis();
-      lastPacketMs = now;
-      lastValidMs  = now;
     }
 
     NKFM_Key poll(uint32_t *rawOut = nullptr) override {
       if (!receiver.getResults()) return NKFM_Key::NONE;
-
       NKFM_Key result = NKFM_Key::NONE;
       if (decoder.decode() && decoder.protocolNum == SONY && decoder.bits >= 12) {
-        uint32_t code = decoder.value;
-        unsigned long now = millis();
-        unsigned long gap = now - lastPacketMs;
-        lastPacketMs = now;
-
-        // Teclas que permiten repetición continua al mantenerlas pulsadas (Volumen +/- y Frecuencia +/-)
-        bool allowHold = (code == 0x9EB92 || code == 0x5EB92 || code == 0xCCB92 || code == 0x2CB92);
-
-        if (code != lastRawCode) {
-          if ((now - lastValidMs) >= 100) {
-            lastRawCode = code;
-            lastValidMs = now;
-            if (rawOut) *rawOut = code;
-            result = mapSonyCode(code);
-          }
-        } else if (allowHold) {
-          if ((now - lastValidMs) >= 170) {
-            lastValidMs = now;
-            if (rawOut) *rawOut = code;
-            result = mapSonyCode(code);
-          }
-        } else if (gap >= 450 && (now - lastValidMs) >= 550) {
-          lastValidMs = now;
-          if (rawOut) *rawOut = code;
-          result = mapSonyCode(code);
-        }
+        result = filterAndMap(decoder.value, rawOut);
       }
-
       decoder.value = 0;
       receiver.enableIRIn();
       return result;
     }
+
+  #elif defined(ESP32)
+    NKFM_IRSony(uint8_t rxPin) : _rxPin(rxPin), receiver(rxPin) {}
+
+    void begin() override {
+      receiver.enableIRIn();
+    }
+
+    void flush() override {
+      if (receiver.decode(&results)) {
+        receiver.resume();
+      }
+    }
+
+    NKFM_Key poll(uint32_t *rawOut = nullptr) override {
+      if (!receiver.decode(&results)) return NKFM_Key::NONE;
+      NKFM_Key result = NKFM_Key::NONE;
+      if (results.decode_type == SONY && results.bits >= 12) {
+        result = filterAndMap((uint32_t)results.value, rawOut);
+      }
+      receiver.resume();
+      return result;
+    }
+  #endif
 
     static const char* getKeyName(NKFM_Key k) {
       switch (k) {
@@ -151,4 +194,3 @@ class NKFM_IRSony : public NKFM_IRRemote {
       }
     }
 };
-#endif

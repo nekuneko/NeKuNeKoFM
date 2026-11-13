@@ -8,6 +8,7 @@ class NKFM_ReceiverSi4705 : public NKFM_Receiver {
     uint8_t  _addr;
     int8_t   _rstPin;
     bool     _hasBoardLeds;
+    bool     _useExtAntenna;
     bool     _onLedState   = false; // IO2 (LED Rojo ON) apagado por defecto para ahorrar batería
     bool     _muteLedState = false; // IO1 (LED Azul MUTE)
 
@@ -28,7 +29,9 @@ class NKFM_ReceiverSi4705 : public NKFM_Receiver {
     void hwSetBassBoostMode(bool enable) override;
 
   public:
-    NKFM_ReceiverSi4705(TwoWire& wirePort = Wire, uint8_t i2cAddr = 0x63, int8_t rstPin = -1, bool hasBoardLeds = true);
+    NKFM_ReceiverSi4705(TwoWire& wirePort = Wire, uint8_t i2cAddr = 0x63, int8_t rstPin = -1,
+                        bool hasBoardLeds = true, bool useExtAntenna = false);
+
 
     void begin() override;
     void updateSignal() override;

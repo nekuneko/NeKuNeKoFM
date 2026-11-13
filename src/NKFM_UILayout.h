@@ -101,11 +101,18 @@ namespace UIGfx {
 }
 
 void uiInit(Adafruit_ST7789 &display, NKFM_UILayout &layout, uint8_t rotation, int8_t backlightPin = -1, bool blActiveLow = true);
+void uiSetLayout(NKFM_UILayout &layout);
 void uiSetPresets(const NKFM_Preset* presetList, uint8_t count);
 void uiSetTimezoneOffset(int8_t hoursOffset);
 
 uint8_t uiSetTheme(uint8_t idx);
 uint8_t uiNextTheme(bool forward = true);
+
+void uiSetSkins(NKFM_UILayout* const* skinList, uint8_t count);
+uint8_t uiSetSkin(uint8_t idx);
+uint8_t uiNextSkin(bool forward = true);
+uint8_t uiGetSkin();
+
 void uiSetRotation(uint8_t rotation);
 void uiMarkDirty(uint8_t flags);
 void uiToggleDisplay();

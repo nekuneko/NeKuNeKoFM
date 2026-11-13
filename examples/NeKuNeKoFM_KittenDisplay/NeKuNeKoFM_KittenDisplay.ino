@@ -5,16 +5,16 @@
 
 #include <NeKuNeKoFM.h>
 #include <NKFM_BoardConfig.h>
+#include <NKFM_ActionDispatcher.h>
 #include <NKFM_ReceiverSi4705.h>
-#include <NKFM_UILayout_240x240.h>
+#include <skins/NKFM_Skins_240x240.h>
 #include <NKFM_UISerial.h>
 #include <NKFM_IRSony.h>
 #include <NKFM_ButtonPad.h>
 #include <NKFM_BatteryMAX17048.h>
 
 Adafruit_ST7789       tft(&SPI1, NKFM_PIN_TFT_CS, NKFM_PIN_TFT_DC, NKFM_PIN_TFT_RST);
-NKFM_UILayout_240x240 layout;
-NKFM_ReceiverSi4705   radio(Wire, NKFM_SI4705_ADDR, NKFM_PIN_RADIO_RST, NKFM_HAS_BOARD_LEDS);
+NKFM_ReceiverSi4705   radio(Wire, NKFM_SI4705_ADDR, NKFM_PIN_RADIO_RST, NKFM_HAS_BOARD_LEDS, NKFM_USE_EXT_ANTENNA);
 NKFM_UISerial         console(&Serial);
 NKFM_IRSony           remoteIR(NKFM_PIN_IR_IRQ);
 NKFM_ButtonPad        buttons(NKFM_BTNS, NKFM_BTN_COUNT, 700);
@@ -23,7 +23,6 @@ NKFM_BatteryMAX17048  battery(Wire, NKFM_MAX17048_ADDR);
 int TFT_ROTATION = NKFM_DEFAULT_ROTATION;
 unsigned long tRDS = 0, tBat = 0, tSig = 0;
 
-// Observador central: sincroniza pantalla TFT y log Serie ante cualquier evento
 void onRadioEvent(NKFM_UIEvent ev, int val, const char* source) {
   console.logEvent(ev, val, source);
 
@@ -50,29 +49,35 @@ void onRadioEvent(NKFM_UIEvent ev, int val, const char* source) {
     case NKFM_UIEvent::THEME_NEXT:
       uiNextTheme(val != 0);
       break;
+    case NKFM_UIEvent::SKIN_SET:
+      uiSetSkin((uint8_t)val);
+      break;
+    case NKFM_UIEvent::SKIN_NEXT:
+      uiNextSkin(val != 0);
+      break;
     case NKFM_UIEvent::ROTATION_SET:
       TFT_ROTATION = val & 0x03;
       uiSetRotation(TFT_ROTATION);
       break;
     case NKFM_UIEvent::ROTATION_NEXT:
-      TFT_ROTATION = (TFT_ROTATION + 1) & 0x03;
+      TFT_ROTATION = (TFT_ROTATION + ((val != 0) ? 1 : 3)) & 0x03;
       uiSetRotation(TFT_ROTATION);
+      break;
+    case NKFM_UIEvent::DISPLAY_TOGGLE:
+      uiToggleDisplay();
+      break;
+    default:
       break;
   }
 }
 
-void onButtonAction(uint8_t idx, int pin, bool isLong) {
+void onButtonAction(uint8_t idx, const NKFM_ButtonDef& btn, bool isLong) {
+  (void)idx;
   const char* src = isLong ? "BTN LONG" : "BTN";
-  console.logTag("[BTN]"); Serial.print(NKFM_BTN_NAMES[idx]);
-  Serial.println(isLong ? F(" -> LONG") : F(" -> SHORT"));
+  console.logTag("[BTN]"); Serial.print(btn.label);
+  Serial.println(isLong ? F(" -> LARGA") : F(" -> CORTA"));
 
-  if      (pin == NKFM_BTN_MUTE) { if (isLong) uiToggleDisplay(); else radio.toggleMute(src); }
-  else if (pin == NKFM_BTN_NEXT) { if (isLong) radio.seek(true, src); else radio.nextPreset(src); }
-  else if (pin == NKFM_BTN_PREV) { if (isLong) radio.seek(false, src); else radio.prevPreset(src); }
-  else if (pin == NKFM_BTN_VUP)  { if (isLong) radio.stepFrequency(+1, src); else radio.changeVolume(+1, src); }
-  else if (pin == NKFM_BTN_VDN)  { if (isLong) radio.stepFrequency(-1, src); else radio.changeVolume(-1, src); }
-  else if (pin == NKFM_BTN_INFO) { if (isLong) radio.toggleBassBoost(src); else onRadioEvent(NKFM_UIEvent::THEME_NEXT, 0, src); }
-  else if (pin == NKFM_BTN_ROT)  { if (isLong) radio.toggleMono(src); else onRadioEvent(NKFM_UIEvent::ROTATION_NEXT, 0, src); }
+  NKFM_ActionDispatcher::execute(isLong ? btn.longAct : btn.shortAct, radio, onRadioEvent, src);
 }
 
 void checkBattery(bool forceLog) {
@@ -98,7 +103,8 @@ void setup() {
 
   buttons.begin(onButtonAction);
 
-  uiInit(tft, layout, TFT_ROTATION, NKFM_PIN_TFT_BL, NKFM_TFT_BL_ACT_LOW);
+  uiInit(tft, *NKFM_SKINS[0], TFT_ROTATION, NKFM_PIN_TFT_BL, NKFM_TFT_BL_ACT_LOW);
+  uiSetSkins(NKFM_SKINS, NKFM_SKIN_COUNT);
   uiSetPresets(NKFM_DEFAULT_PRESETS, NKFM_DEFAULT_PRESET_COUNT);
   uiSetTimezoneOffset(NKFM_TIMEZONE_OFFSET);
   uiSetTheme(NKFM_DEFAULT_THEME);
@@ -136,12 +142,11 @@ void loop() {
   NKFM_Key key = remoteIR.poll(&rawIR);
   if (key != NKFM_Key::NONE) {
     radio.blinkOnLed(25);
-    if (key == NKFM_Key::POWER)      uiToggleDisplay();
-    else if (key == NKFM_Key::MUSIC) radio.tuneTo(9450, "IR");
+    if      (key == NKFM_Key::MUSIC) radio.tuneTo(9450, "IR");
+    else if (key == NKFM_Key::MENU)  NKFM_ActionDispatcher::execute(NKFM_Action::SKIN_NEXT, radio, onRadioEvent, "IR");
     else                             NKFM_IRRemote::dispatchDefault(key, radio, onRadioEvent);
     remoteIR.flush();
   }
-
 
   if (now - tRDS >= 40)    { tRDS = now; radio.pollRDS(); }
   if (now - tSig >= 2000)  { tSig = now; radio.updateSignal(); uiSetSignal(radio.getRSSI(), radio.getSNR(), radio.isStereo()); }
@@ -150,5 +155,4 @@ void loop() {
   uiTickClock(now);
   uiTickScroll(now);
   uiRender();
-  if (key != NKFM_Key::NONE) remoteIR.flush();
 }

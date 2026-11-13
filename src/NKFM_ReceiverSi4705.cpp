@@ -1,7 +1,10 @@
 #include "NKFM_ReceiverSi4705.h"
 
-NKFM_ReceiverSi4705::NKFM_ReceiverSi4705(TwoWire& wirePort, uint8_t i2cAddr, int8_t rstPin, bool hasBoardLeds)
-  : _wire(&wirePort), _addr(i2cAddr), _rstPin(rstPin), _hasBoardLeds(hasBoardLeds) {}
+NKFM_ReceiverSi4705::NKFM_ReceiverSi4705(TwoWire& wirePort, uint8_t i2cAddr, int8_t rstPin,
+                                         bool hasBoardLeds, bool useExtAntenna)
+  : _wire(&wirePort), _addr(i2cAddr), _rstPin(rstPin),
+    _hasBoardLeds(hasBoardLeds), _useExtAntenna(useExtAntenna) {}
+
 
 void NKFM_ReceiverSi4705::waitCTS() {
   unsigned long t0 = millis();
@@ -58,17 +61,19 @@ void NKFM_ReceiverSi4705::blinkOnLed(uint16_t durationMs) {
 void NKFM_ReceiverSi4705::begin() {
   if (_rstPin >= 0) {
     pinMode(_rstPin, OUTPUT);
-    digitalWrite(_rstPin, LOW);  delay(250);
-    digitalWrite(_rstPin, HIGH); delay(250);
+    digitalWrite(_rstPin, LOW);  delay(500);
+    digitalWrite(_rstPin, HIGH); delay(500);
   }
 
   uint8_t pwrArgs[2] = { 0x10, 0x05 }; // 0x10: XOSCEN=1, CTSIEN=0, GPO2OEN=0 (libera IO2 para LED Rojo)
   sendCmd(0x01, pwrArgs, 2);
-  delay(100);
+  delay(150);
 
+  setProp(0x0201, 32768);  // REFCLK_FREQ = 32.768 kHz (cristal externo)
+  setProp(0x0202, 0x0001); // REFCLK_PRESCALE = 1
 
   setProp(0x1100, 0x0001); // 50us Europa
-  setProp(0x1107, 0x0000); // Antena auriculares FMI
+  setProp(0x1107, _useExtAntenna ? 0x0001 : 0x0000); // 0x0001 = ANT externa, 0x0000 = FMI auriculares
   setProp(0x1400, 8750);
   setProp(0x1401, 10800);
   setProp(0x1402, 10);
@@ -90,6 +95,7 @@ void NKFM_ReceiverSi4705::begin() {
   _muteLedState = _muted;
   syncBoardLeds(); // Arranca con IO2 (LED Rojo ON) apagado (_onLedState = false)
 }
+
 
 void NKFM_ReceiverSi4705::flushHardwareRDS() {
   uint8_t flushArg = 0x02;
