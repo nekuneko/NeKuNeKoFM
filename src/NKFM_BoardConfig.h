@@ -19,18 +19,23 @@
   constexpr int8_t  NKFM_TIMEZONE_OFFSET = 1;
 
   const NKFM_Preset NKFM_DEFAULT_PRESETS[] = {
-    {  9740, "Canal Sur Cadiz" }, {  9780, "Los 40 Jerez"    }, {  9850, "Gozadera"        },
-    {  9900, "Canal Sur Jerez" }, {  9940, "RAI Andalucia"   }, {  9990, "Cadena Dial"     },
-    { 10140, "Onda Cero"       }, { 10200, "Cadena COPE"     }, { 10230, "NeKu FM"         },
-    { 10350, "RNE 1"           }, { 10410, "Radiole"         }, { 10440, "Radio Maria"     },
-    { 10480, "Canal Fiesta"    }, { 10630, "RNE 5-CA"        }, { 10740, "Radio La Isla"   },
-    { 10770, "Radio Chiclana"  }, { 10780, "Rad. Puerto Real"}, {  8770, "Hit FM"          },
-    {  8810, "Europa FM"       }, {  8910, "Woman FM"        }, {  8940, "Los 40"          },
-    {  8980, "Los 40 CL"       }, {  9030, "Onda Cero 2"     }, {  9080, "Cadena SER"      },
-    {  9170, "Baby Radio"      }, {  9240, "Cadena 100"      }, {  9320, "Cadena SER+"     },
-    {  9360, "AWradio"         }, {  9380, "BOOM FM"         }, {  9450, "Radio Clasica"   },
-    {  9670, "Radio 3"         }
+      {  9740, "Canal Sur Cadiz" }, {  9780, "Los 40 Jerez"    }, {  9820, "Oxigeno Europa"  },
+      {  9850, "Gozadera"        }, {  9870, "Radio Cristiana" }, {  9900, "Canal Sur Jerez" },
+      {  9940, "RAI Andalucia"   }, {  9990, "Cadena Dial"     }, { 10080, "Los 40 Costa"    },
+      { 10140, "Onda Cero"       }, { 10200, "Cadena COPE"     }, { 10230, "NeKu FM"         },
+      { 10250, "AFN Rota"        }, { 10350, "RNE 1"           }, { 10410, "Radiole"         },
+      { 10440, "Radio Maria"     }, { 10480, "Canal Fiesta"    }, { 10500, "RNE 1 SUR"       },
+      { 10580, "COPE Jerez"      }, { 10600, "Dial La Janda"   }, { 10630, "RNE 5-CA"        },
+      { 10680, "Radio Jerez"     }, { 10720, "Medina Activa"   }, { 10740, "Radio La Isla"   },
+      { 10770, "Radio Chiclana"  }, {  8770, "Hit FM"          }, {  8790, "Inolvidable FM"  },
+      {  8810, "Europa FM"       }, {  8910, "Woman FM"        }, {  8940, "Los 40"          },
+      {  8980, "Los 40 CL"       }, {  9030, "Onda Cero Jerez" }, {  9080, "Cadena SER"      },
+      {  9170, "Rave FM"         }, {  9210, "Salvaje FM"      }, {  9240, "Cadena 100"      },
+      {  9280, "Onda Cadiz"      }, {  9320, "Cadena SER+"     }, {  9360, "Radio Network"   },
+      {  9380, "Xtra Cadiz"      }, {  9450, "Radio Clasica"   }, {  9510, "Radio Vida"      },
+      {  9540, "Kiss FM"         }, {  9610, "La Fresca"       }, {  9670, "Radio 3"         }
   };
+
   constexpr uint8_t NKFM_DEFAULT_PRESET_COUNT = sizeof(NKFM_DEFAULT_PRESETS) / sizeof(*NKFM_DEFAULT_PRESETS);
 
   // ==========================================================================

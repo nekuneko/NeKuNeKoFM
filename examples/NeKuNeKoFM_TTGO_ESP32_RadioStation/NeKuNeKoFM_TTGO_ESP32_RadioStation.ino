@@ -105,12 +105,12 @@ void onRadioEvent(NKFM_UIEvent ev, int val, const char* source) {
       uiSetSignal(radio.getRSSI(), radio.getSNR(), radio.isStereo());
       break;
     case NKFM_UIEvent::VOL_CHANGED:
+    case NKFM_UIEvent::MUTE_CHANGED: {
+      bool shouldPlay = (!radio.isMuted() && radio.getVolume() > 0);
       uiSetVolume(radio.getVolume(), radio.isMuted());
+      setAudioAmpsEnabled(shouldPlay);
       break;
-    case NKFM_UIEvent::MUTE_CHANGED:
-      uiSetVolume(radio.getVolume(), radio.isMuted());
-      setAudioAmpsEnabled(!radio.isMuted());
-      break;
+    }
     case NKFM_UIEvent::SIGNAL_CHANGED:
     case NKFM_UIEvent::MONO_CHANGED:
       uiSetSignal(radio.getRSSI(), radio.getSNR(), radio.isStereo());
